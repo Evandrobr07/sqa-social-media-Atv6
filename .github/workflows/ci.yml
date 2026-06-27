@@ -74,9 +74,9 @@ jobs:
         cd sqa-social-media-main/client || cd client || cd .
         nohup npm run dev > frontend.log 2>&1 &
 
-    - name: Aguardar inicializacao dos Servicos de forma inteligente (wait-on)
+    - name: Aguardar inicializacao dos Servicos pelas portas TCP (wait-on)
       run: |
-        npx wait-on http://127.0.0.1:8080 http://127.0.0.1:3000 --timeout 120000
+        npx wait-on tcp:127.0.0.1:8080 tcp:127.0.0.1:3000 --timeout 120000
 
     - name: Executar Testes Unitarios do Frontend (Jest)
       run: |
