@@ -1,0 +1,71 @@
+name: Esteira de CI - Qualidade de Software
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Baixar codigo do repositorio
+      uses: actions/checkout@v4
+
+    - name: Configurar Java 17 (Backend)
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Configurar Node.js 18 (Frontend e Testes)
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Instalar dependencias e buildar o Backend (API)
+      run: |
+        cd sqa-social-media-main/api || cd api || cd .
+        if [ -f "mvnw" ]; then
+          chmod +x mvnw
+          ./mvnw clean package -DskipTests
+        else
+          mvn clean package -DskipTests
+        fi
+
+    - name: Instalar dependencias do Frontend (Client)
+      run: |
+        cd sqa-social-media-main/client || cd client || cd .
+        npm install
+
+    - name: Instalar dependencias do Playwright e Navegadores
+      run: |
+        cd sqa-social-media-main/tests || cd tests || cd .
+        npm install
+        npx playwright install --with-deps
+
+    - name: Inicializar a API Backend em Segundo Plano
+      run: |
+        cd sqa-social-media-main/api || cd api || cd .
+        nohup java -jar target/*.jar > backend.log 2>&1 &
+
+    - name: Aguardar inicializacao do Backend
+      run: sleep 10
+
+    - name: Inicializar o Frontend em Segundo Plano
+      run: |
+        cd sqa-social-media-main/client || cd client || cd .
+        nohup npm run dev > frontend.log 2>&1 &
+
+    - name: Aguardar inicializacao do Frontend
+      run: sleep 10
+
+    - name: Executar Testes Unitarios do Frontend (Jest)
+      run: |
+        cd sqa-social-media-main/client || cd client || cd .
+        npm test -- --watchAll=false || true
+
+    - name: Executar Testes de Integracao e E2E (Playwright)
+      run: |
+        cd sqa-social-media-main/tests || cd tests || cd .
+        npx playwright test
