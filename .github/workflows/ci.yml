@@ -61,6 +61,10 @@ jobs:
         npx playwright install --with-deps
 
     - name: Inicializar a API Backend em Segundo Plano
+      env:
+        SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/social_media_db?allowPublicKeyRetrieval=true&useSSL=false
+        SPRING_DATASOURCE_USERNAME: dev_user
+        SPRING_DATASOURCE_PASSWORD: dev_password
       run: |
         cd sqa-social-media-main/api || cd api || cd .
         nohup java -Djava.net.preferIPv4Stack=true -jar target/*.jar > backend.log 2>&1 &
