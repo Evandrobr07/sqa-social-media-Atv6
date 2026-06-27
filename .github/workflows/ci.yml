@@ -84,6 +84,8 @@ jobs:
         npm test -- --watchAll=false || true
 
     - name: Executar Testes de Integracao e E2E (Playwright)
+      env:
+        NODE_OPTIONS: --dns-result-order=ipv4first
       run: |
         cd sqa-social-media-main/tests || cd tests || cd .
         npx playwright test
