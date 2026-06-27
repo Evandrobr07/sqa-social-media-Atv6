@@ -28,7 +28,7 @@ jobs:
     - name: Baixar codigo do repositorio
       uses: actions/checkout@v4
 
-    - name: Forcar resolucao de localhost para IPv4 (Evita erro de IPv6 no Playwright)
+    - name: Forcar resolucao de localhost para IPv4
       run: |
         sudo sed -i 's/^::1\s*localhost/##::1 localhost/' /etc/hosts
 
@@ -64,36 +64,30 @@ jobs:
         npm install
         npx playwright install --with-deps
 
-    - name: Inicializar a API Backend em Segundo Plano
+    - name: Iniciar Servidores e Executar TODOS os Testes
       env:
         SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/social_media_db?allowPublicKeyRetrieval=true&useSSL=false
         SPRING_DATASOURCE_USERNAME: dev_user
         SPRING_DATASOURCE_PASSWORD: dev_password
+        NODE_OPTIONS: --dns-result-order=ipv4first
       run: |
-        cd sqa-social-media-main/api || cd api || cd .
-        nohup java -Djava.net.preferIPv4Stack=true -jar target/*.jar > backend.log 2>&1 &
-
-    - name: Inicializar o Frontend em Segundo Plano
-      run: |
-        cd sqa-social-media-main/client || cd client || cd .
-        nohup npm run dev > frontend.log 2>&1 &
-
-    - name: Aguardar inicializacao dos Servicos pelas portas TCP (wait-on)
-      run: |
+        # 1. Subir a API em segundo plano (usando parênteses para não sujar a pasta atual)
+        (cd sqa-social-media-main/api || cd api || cd . && nohup java -Djava.net.preferIPv4Stack=true -jar target/*.jar > backend.log 2>&1 &)
+        
+        # 2. Subir o Frontend em segundo plano
+        (cd sqa-social-media-main/client || cd client || cd . && nohup npm run dev > frontend.log 2>&1 &)
+        
+        # 3. Aguardar os servidores ficarem online nas portas
         npx wait-on tcp:127.0.0.1:8080 tcp:127.0.0.1:3000 --timeout 120000
-
-    - name: Executar Testes Unitarios do Frontend (Jest)
-      run: |
-        cd sqa-social-media-main/client || cd client || cd .
-        npm test -- --watchAll=false || true
-
-    - name: Executar Testes de Integracao e E2E (Playwright)
-      run: |
-        cd sqa-social-media-main/tests || cd tests || cd .
-        npx playwright test
+        
+        # 4. Rodar os testes unitários do Front
+        (cd sqa-social-media-main/client || cd client || cd . && npm test -- --watchAll=false || true)
+        
+        # 5. Rodar os testes de integracao/E2E
+        (cd sqa-social-media-main/tests || cd tests || cd . && npx playwright test)
 
     - name: Exibir logs do Backend em caso de falha (Debug)
       if: failure()
       run: |
         echo "=== LOGS DO BACKEND ==="
-        cat sqa-social-media-main/api/backend.log || true
+        cat sqa-social-media-main/api/backend.log || cat api/backend.log || cat backend.log || echo "Sem log do backend."
