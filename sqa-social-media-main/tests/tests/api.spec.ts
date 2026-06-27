@@ -1,23 +1,26 @@
 import { test, expect } from '@playwright/test';
 
-const API_URL = process.env.API_URL || 'http://127.0.0.1:8080';
+const API_URL = 'http://localhost:8080';
 
 test.describe('Testes de API - Autenticação', () => {
 
   test('POST /auth/signup - Deve cadastrar um usuário com sucesso', async ({ request }) => {
-    const dynamicEmail = `playwright${Date.now()}@teste.com`;
 
-    const response = await request.post(`${API_URL}/auth/signup`, {
-      data: {
-        email: dynamicEmail,
-        password: "Senha@123"
-      }
-    });
+  const dynamicEmail = `playwright${Date.now()}@teste.com`;
 
-    expect(response.ok()).toBeTruthy();
+  const response = await request.post('http://localhost:8080/auth/signup', {
+    data: {
+      email: dynamicEmail,
+      password: "Senha@123"
+    }
   });
 
+
+  expect(response.ok()).toBeTruthy();
+});
+
   test('POST /auth/signup - Deve falhar ao cadastrar e-mail duplicado', async ({ request }) => {
+   
     const response = await request.post(`${API_URL}/auth/signup`, {
       data: {
         name: 'Usuário Copia',
@@ -38,7 +41,7 @@ test.describe('Testes de API - Autenticação', () => {
     });
 
     expect(response.ok()).toBeTruthy();
-
+    
     const body = await response.json();
     expect(body).toHaveProperty('token');
   });
