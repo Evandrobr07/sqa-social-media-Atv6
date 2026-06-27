@@ -28,6 +28,10 @@ jobs:
     - name: Baixar codigo do repositorio
       uses: actions/checkout@v4
 
+    - name: Forcar resolucao de localhost para IPv4 (Evita erro de IPv6 no Playwright)
+      run: |
+        sudo sed -i 's/^::1\s*localhost/##::1 localhost/' /etc/hosts
+
     - name: Configurar Java 17 (Backend)
       uses: actions/setup-java@v4
       with:
@@ -84,8 +88,6 @@ jobs:
         npm test -- --watchAll=false || true
 
     - name: Executar Testes de Integracao e E2E (Playwright)
-      env:
-        NODE_OPTIONS: --dns-result-order=ipv4first
       run: |
         cd sqa-social-media-main/tests || cd tests || cd .
         npx playwright test
