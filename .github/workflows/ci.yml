@@ -63,18 +63,16 @@ jobs:
     - name: Inicializar a API Backend em Segundo Plano
       run: |
         cd sqa-social-media-main/api || cd api || cd .
-        nohup java -jar target/*.jar > backend.log 2>&1 &
-
-    - name: Aguardar inicializacao do Backend
-      run: sleep 45
+        nohup java -Djava.net.preferIPv4Stack=true -jar target/*.jar > backend.log 2>&1 &
 
     - name: Inicializar o Frontend em Segundo Plano
       run: |
         cd sqa-social-media-main/client || cd client || cd .
         nohup npm run dev > frontend.log 2>&1 &
 
-    - name: Aguardar inicializacao do Frontend
-      run: sleep 30
+    - name: Aguardar inicializacao dos Servicos de forma inteligente (wait-on)
+      run: |
+        npx wait-on http://127.0.0.1:8080 http://127.0.0.1:3000 --timeout 120000
 
     - name: Executar Testes Unitarios do Frontend (Jest)
       run: |
@@ -85,3 +83,9 @@ jobs:
       run: |
         cd sqa-social-media-main/tests || cd tests || cd .
         npx playwright test
+
+    - name: Exibir logs do Backend em caso de falha (Debug)
+      if: failure()
+      run: |
+        echo "=== LOGS DO BACKEND ==="
+        cat sqa-social-media-main/api/backend.log || true
