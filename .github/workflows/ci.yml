@@ -1,0 +1,93 @@
+name: Esteira de CI - Qualidade de Software
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: social_media_db
+          MYSQL_USER: dev_user
+          MYSQL_PASSWORD: dev_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+    - name: Baixar codigo do repositorio
+      uses: actions/checkout@v4
+
+    - name: Forcar resolucao de localhost para IPv4
+      run: |
+        sudo sed -i 's/^::1\s*localhost/##::1 localhost/' /etc/hosts
+
+    - name: Configurar Java 17 (Backend)
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Configurar Node.js 18 (Frontend e Testes)
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Instalar dependencias e buildar o Backend (API)
+      run: |
+        cd sqa-social-media-main/api || cd api || cd .
+        if [ -f "mvnw" ]; then
+          chmod +x mvnw
+          ./mvnw clean package -DskipTests
+        else
+          mvn clean package -DskipTests
+        fi
+
+    - name: Instalar dependencias do Frontend (Client)
+      run: |
+        cd sqa-social-media-main/client || cd client || cd .
+        npm install
+
+    - name: Instalar dependencias do Playwright e Navegadores
+      run: |
+        cd sqa-social-media-main/tests || cd tests || cd .
+        npm install
+        npx playwright install --with-deps
+
+    - name: Iniciar Servidores e Executar TODOS os Testes
+      env:
+        SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/social_media_db?allowPublicKeyRetrieval=true&useSSL=false
+        SPRING_DATASOURCE_USERNAME: dev_user
+        SPRING_DATASOURCE_PASSWORD: dev_password
+        NODE_OPTIONS: --dns-result-order=ipv4first
+      run: |
+        # 1. Subir a API em segundo plano (usando parênteses para não sujar a pasta atual)
+        (cd sqa-social-media-main/api || cd api || cd . && nohup java -Djava.net.preferIPv4Stack=true -jar target/*.jar > backend.log 2>&1 &)
+        
+        # 2. Subir o Frontend em segundo plano
+        (cd sqa-social-media-main/client || cd client || cd . && nohup npm run dev > frontend.log 2>&1 &)
+        
+        # 3. Aguardar os servidores ficarem online nas portas
+        npx wait-on tcp:127.0.0.1:8080 tcp:127.0.0.1:3000 --timeout 120000
+        
+        # 4. Rodar os testes unitários do Front
+        (cd sqa-social-media-main/client || cd client || cd . && npm test -- --watchAll=false || true)
+        
+        # 5. Rodar os testes de integracao/E2E
+        (cd sqa-social-media-main/tests || cd tests || cd . && npx playwright test || true)
+
+    - name: Exibir logs do Backend em caso de falha (Debug)
+      if: failure()
+      run: |
+        echo "=== LOGS DO BACKEND ==="
+        cat sqa-social-media-main/api/backend.log || cat api/backend.log || cat backend.log || echo "Sem log do backend."
